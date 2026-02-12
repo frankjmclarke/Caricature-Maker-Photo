@@ -1,0 +1,12 @@
+# Networking and AI Service
+
+**Purpose**: Rules for API calls, network requests, and AI service integration. Apply when working on AIService or network features.
+
+## AI Service
+- Uses OpenAI API for meal estimation
+- API keys loaded from Config.plist (gitignored)
+
+## Network Best Practices
+- Never block the main thread
+- Always handle failures gracefully with calm UI (no scary alerts)
+- Put network calls behind a protocol if needed for testing

@@ -1,0 +1,16 @@
+# Calories Deficit Tracker Domain Rules
+
+**Purpose**: Business logic, calculations, and domain-specific constraints. Defines the app's core philosophy and calculation methods.
+
+## Core Philosophy
+- The app is "measurement, not judgment"
+- Do not add target weight, coaching, streak pressure, or moral language
+
+## Calculations
+- **BMR**: Use Mifflin–St Jeor equation
+- **TDEE**: BMR × activity multiplier (internal constants)
+- **Display**: Show TDEE using "~" (approximate), no false precision
+
+## Evaluation Logic
+- Evaluate "on track" using weekly averages
+- Avoid day-to-day volatility in status calculations

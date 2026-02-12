@@ -1,0 +1,9 @@
+# Core Repository Invariants
+
+This is an iOS SwiftUI codebase. These rules always apply.
+
+- Use Swift 5.9+ and SwiftUI best practices
+- Prefer value types (struct) and immutable data where practical
+- Never store secrets in source code or UserDefaults
+- Config.plist is gitignored - never commit API keys
+- Keep changes incremental and reviewable

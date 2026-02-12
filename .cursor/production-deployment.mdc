@@ -1,0 +1,15 @@
+# Production Deployment Checklist
+
+**Purpose**: Pre-submission verification steps. Apply before building for App Store submission.
+
+## Pre-Submission Checklist
+- Set `forceOnboarding = false`
+- Set `forceShowPaywall = false`
+- Remove hardcoded API keys (use Config.plist)
+- Wrap debug prints in `#if DEBUG` where appropriate
+- Verify Info.plist keys are set (privacy descriptions, encryption)
+
+## Build Configuration
+- Build with Release configuration
+- Verify code signing is correct
+- Increment build number for new submissions

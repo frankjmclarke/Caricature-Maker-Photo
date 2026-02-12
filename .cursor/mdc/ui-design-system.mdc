@@ -1,0 +1,14 @@
+# UI Design System
+
+**Purpose**: Visual style guidelines, component patterns, and copy tone. Apply when designing or modifying UI.
+
+## Visual Style
+- Use `systemGroupedBackground` for main backgrounds
+- Use card-style sections with rounded corners (16–20pt radius)
+- Avoid noisy charts
+- If a visual is needed, prefer a labeled range gauge or simple indicator
+
+## Copy Tone
+- Keep copy short and calm
+- No exclamation points
+- Measurement-focused language, not judgmental

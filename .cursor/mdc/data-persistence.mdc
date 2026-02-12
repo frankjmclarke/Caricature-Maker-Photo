@@ -1,0 +1,22 @@
+# Data Persistence Strategy
+
+**Purpose**: Rules for storing data, settings, and secrets. Defines when to use UserDefaults vs SwiftData vs Config.plist.
+
+## Storage Decisions
+- **UserDefaults/AppStorage**: Small flags and simple settings only
+  - `hasCompletedOnboarding` (Bool)
+- **SwiftData**: All persistent domain data
+  - `DailyEntry`, `Meal`, `WeightEntry`, `UserSettings`
+- **Config.plist** (gitignored): API keys and secrets
+  - `OPENAI_API_KEY`
+  - `SUPERWALL_API_KEY`
+
+## Security
+- Never store secrets in UserDefaults
+- Never store secrets in source code
+- Always load API keys from Config.plist at runtime
+- Fail explicitly if required keys are missing (no silent fallbacks)
+
+## Testing Flags
+- `forceOnboarding` (Bool) - global variable for testing, set to false for production
+- `forceShowPaywall` (Bool) - global variable for testing, set to false for production

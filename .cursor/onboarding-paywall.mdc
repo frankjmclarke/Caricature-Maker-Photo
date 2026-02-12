@@ -1,0 +1,14 @@
+# Onboarding and Paywall Flow
+
+**Purpose**: Rules for onboarding sequence and paywall integration. Apply when working on user onboarding or subscription features.
+
+## Onboarding Logic
+- Onboarding shows once only unless `forceOnboarding` is true (testing flag)
+- Gate at app root: show onboarding if `forceOnboarding || !hasCompletedOnboarding`
+- Onboarding collects user assumptions then shows paywall
+- Provide an Assumptions edit screen in Settings
+
+## Paywall Integration
+- Uses Superwall for paywall management
+- `forceShowPaywall` global variable for testing (set to false for production)
+- Paywall shown in onboarding flow via `PaywallView` from SuperwallKit

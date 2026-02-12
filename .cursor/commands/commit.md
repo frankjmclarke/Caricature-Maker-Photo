@@ -1,0 +1,1 @@
+Add and commit all changes with a message to outline the changes and their purpose. Use the GitHub CLI. Then push these changes.

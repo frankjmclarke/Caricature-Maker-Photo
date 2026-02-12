@@ -1,0 +1,29 @@
+# SwiftUI Architecture Patterns
+
+**Purpose**: Defines MVVM-lite patterns and SwiftUI conventions for view/viewmodel/model separation.
+
+## Architecture Pattern
+- Use MVVM-lite:
+  - Views: UI + simple state bindings only
+  - ViewModels: ObservableObject for non-trivial logic
+  - Models: plain structs/enums
+
+## State Management
+- Use `@State` for local UI state
+- Use `@StateObject` for owned view models
+- Use `@ObservedObject` for injected view models
+
+## Navigation
+- Prefer `NavigationStack`, not deprecated APIs
+
+## Code Organization
+- Keep Views in separate files if they exceed ~200 lines
+- Keep functions small; avoid "god views" and "god view models"
+- Do not create a dependency injection framework. Use simple constructor injection.
+
+## Current Structure
+- App entry: `Calories_Deficit_TrackerApp.swift`
+- Views: `ContentView.swift`, `OnboardingView.swift`, `LogFoodView.swift`, `ProgressView.swift`, `ConsistencyView.swift`, `GoalSettingsView.swift`
+- ViewModels: `ViewModels.swift`, `OnboardingViewModel.swift`
+- Models: `Models.swift`
+- Services: `AIService.swift`, `DataManager.swift`

@@ -1,0 +1,12 @@
+# Testing Workflow
+
+**Purpose**: Testing patterns, flags, and test organization. Apply when writing or modifying tests.
+
+## Testing Flags
+- `forceOnboarding` - Set to true to force onboarding display (set to false for production)
+- `forceShowPaywall` - Set to true to force paywall display even if purchased (set to false for production)
+
+## Test Coverage
+- Unit-test calculation functions (BMR/TDEE) and status threshold logic
+- Write tests for onboarding gating and persistence
+- Do not add snapshot testing unless asked

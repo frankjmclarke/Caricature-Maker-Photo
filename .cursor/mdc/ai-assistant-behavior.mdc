@@ -1,0 +1,16 @@
+# AI Assistant Code Output Requirements
+
+**Purpose**: Defines how the AI assistant should structure code changes and responses. Always applies when generating code.
+
+## Code Generation Standards
+- When implementing a feature: provide file list + exact code changes
+- Ensure code compiles
+- Avoid placeholder TODOs unless unavoidable; if used, explain them
+- Never invent APIs. Use actual Apple frameworks. If unsure, propose a minimal approach
+- Wrap debug print statements in `#if DEBUG` blocks for production builds
+
+## Code Quality
+- Prefer clarity over cleverness
+- No metaprogramming or heavy generics unless necessary
+- Do not introduce unnecessary frameworks or abstractions
+- Prefer small, composable types
