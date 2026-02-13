@@ -11,7 +11,7 @@ import UIKit
 import SuperwallKit
 import StoreKit
 
-var skipPaywall: Bool = true
+var skipPaywall: Bool = false
 
 struct OnboardingView: View {
     @State private var currentStep: Int = 0

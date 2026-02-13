@@ -20,7 +20,7 @@ enum PaywallResult {
 }
 
 struct SimplePaywallView: View {
-    let productIDs = ["cariactureMonthly", "cariactureYearly"]
+    let productIDs = ["monthlyCaricature", "yearlyCaricature"]
     let onResult: (PaywallResult) -> Void
     
     @State private var products: [Product] = []
@@ -29,6 +29,7 @@ struct SimplePaywallView: View {
     @State private var isRestoring = false
     @State private var errorMessage: String?
     @State private var purchasingProductID: String?
+    @State private var monthlyEligibleForTrial: Bool = true
     
     // Legal document URLs - Update these with your actual URLs
     private let privacyPolicyURL = URL(string: "https://francisclarke.com/apple/privacy-policy-apple-calories.html")!
@@ -55,7 +56,7 @@ struct SimplePaywallView: View {
                             .font(.system(size: 15))
                             .foregroundColor(.secondary)
 
-                        Text("Includes food logging, calorie estimation, and trend analysis.")
+                        Text("Create caricatures, unlock all styles, and save to Photos.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -99,60 +100,11 @@ struct SimplePaywallView: View {
                         .padding(.vertical, 40)
                     } else {
                         VStack(spacing: 12) {
-                            // Find yearly product for trial info
-                            let yearlyProduct = products.first { $0.id == "cariactureYearly" }
-                            
-                            // Debug logging (wrapped to avoid view builder issues)
-                            let _ = {
-                                #if DEBUG
-                                if let yearlyProduct = yearlyProduct {
-                                    if let subscription = yearlyProduct.subscription {
-                                        if let trialOffer = subscription.introductoryOffer {
-                                            TraceLogger.trace("SimplePaywallView", "Found trial offer: period=\(trialOffer.period.value) \(trialOffer.period.unit), price=\(trialOffer.displayPrice)")
-                                        } else {
-                                            TraceLogger.trace("SimplePaywallView", "Yearly product has subscription but no introductoryOffer")
-                                        }
-                                    } else {
-                                        TraceLogger.trace("SimplePaywallView", "Yearly product has no subscription info")
-                                    }
-                                } else {
-                                    TraceLogger.trace("SimplePaywallView", "Yearly product not found in products")
-                                }
-                                #endif
-                            }()
-                            
-                            // Show Free Trial button only if yearly product has an introductory offer from StoreKit
-                            let hasYearlyTrial = yearlyProduct?.subscription?.introductoryOffer != nil
-                            
-                            if let yearlyProduct = yearlyProduct,
-                               let subscription = yearlyProduct.subscription,
-                               subscription.introductoryOffer != nil {
-                                let _ = {
-                                    #if DEBUG
-                                    TraceLogger.trace("SimplePaywallView", "Showing FreeTrialCard")
-                                    #endif
-                                }()
-                                FreeTrialCard(
-                                    product: yearlyProduct,
-                                    subscription: subscription,
-                                    isPurchasing: isPurchasing && purchasingProductID == yearlyProduct.id,
-                                    onPurchase: {
-                                        purchaseProduct(yearlyProduct)
-                                    }
-                                )
-                            }
-                            
-                            // Show regular subscription options (exclude yearly if already shown in FreeTrialCard)
-                            ForEach(products.filter { product in
-                                // Exclude yearly product if it's shown in FreeTrialCard
-                                if hasYearlyTrial && product.id == "cariactureYearly" {
-                                    return false
-                                }
-                                return true
-                            }, id: \.id) { product in
+                            ForEach(products, id: \.id) { product in
                                 ProductCard(
                                     product: product,
                                     isPurchasing: isPurchasing && purchasingProductID == product.id,
+                                    monthlyEligibleForTrial: monthlyEligibleForTrial,
                                     onPurchase: {
                                         purchaseProduct(product)
                                     }
@@ -224,13 +176,21 @@ struct SimplePaywallView: View {
                 #if DEBUG
                 TraceLogger.trace("SimplePaywallView", "loadProducts: Loaded \(loadedProducts.count) products")
                 #endif
+                let monthlyProduct = loadedProducts.first { $0.id == "monthlyCaricature" }
+                var eligible = true
+                if let sub = monthlyProduct?.subscription, sub.introductoryOffer != nil {
+                    eligible = await sub.isEligibleForIntroOffer
+                    #if DEBUG
+                    TraceLogger.trace("SimplePaywallView", "Monthly intro eligibility: \(eligible)")
+                    #endif
+                }
                 await MainActor.run {
                     self.products = loadedProducts.sorted { product1, product2 in
-                        // Sort: yearly first, then monthly
-                        if product1.id == "cariactureYearly" { return true }
-                        if product2.id == "cariactureYearly" { return false }
+                        if product1.id == "monthlyCaricature" { return true }
+                        if product2.id == "monthlyCaricature" { return false }
                         return product1.id < product2.id
                     }
+                    self.monthlyEligibleForTrial = eligible
                     self.isLoadingProducts = false
                     
                     #if DEBUG
@@ -401,12 +361,13 @@ struct SimplePaywallView: View {
 struct ProductCard: View {
     let product: Product
     let isPurchasing: Bool
+    let monthlyEligibleForTrial: Bool
     let onPurchase: () -> Void
     
     private var displayName: String {
-        if product.id == "cariactureMonthly" {
+        if product.id == "monthlyCaricature" {
             return "Monthly"
-        } else if product.id == "cariactureYearly" {
+        } else if product.id == "yearlyCaricature" {
             return "Yearly"
         }
         return product.displayName
@@ -416,68 +377,71 @@ struct ProductCard: View {
         product.displayPrice
     }
     
-    // Get subscription period string (e.g., "/month", "/year")
     private var periodString: String {
-        guard let subscription = product.subscription else {
-            return ""
-        }
+        guard let subscription = product.subscription else { return "" }
         return formatPeriodString(subscription.subscriptionPeriod)
     }
     
-    // Get charging frequency string for disclosure (e.g., "monthly", "annually")
     private var chargingFrequency: String {
-        guard let subscription = product.subscription else {
-            return ""
-        }
+        guard let subscription = product.subscription else { return "" }
         return formatChargingFrequency(subscription.subscriptionPeriod)
     }
     
-    // Check if product has an introductory offer (trial)
     private var hasTrial: Bool {
         product.subscription?.introductoryOffer != nil
     }
     
-    // Get trial period string if exists
-    private var trialPeriodString: String {
-        guard let subscription = product.subscription,
-              let trialOffer = subscription.introductoryOffer else {
-            return ""
+    private var showTrialCopy: Bool {
+        product.id == "monthlyCaricature" && hasTrial && monthlyEligibleForTrial
+    }
+    
+    private var ctaTitle: String {
+        if product.id == "monthlyCaricature" && showTrialCopy {
+            return "Start 7-Day Free Trial"
         }
-        return formatTrialPeriod(trialOffer.period)
+        if product.id == "monthlyCaricature" && !showTrialCopy {
+            return "Subscribe Monthly"
+        }
+        return "Subscribe — \(price)\(periodString)"
+    }
+    
+    private var renewalDisclosure: String {
+        if showTrialCopy {
+            return "Free for 7 days, then \(price)/month. Cancel anytime."
+        }
+        return "Then \(price)\(periodString), charged \(chargingFrequency). Auto-renews until canceled."
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // BILLED AMOUNT - MOST PROMINENT (top, largest font)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(price)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.primary)
-                    
-                    if !periodString.isEmpty {
-                        Text(periodString)
+                    if showTrialCopy {
+                        Text("7-day free trial")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.primary)
+                        Text("then \(price)/month")
                             .font(.system(size: 18, weight: .regular))
                             .foregroundColor(.secondary)
+                    } else {
+                        Text(price)
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(.primary)
+                        if !periodString.isEmpty {
+                            Text(periodString)
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundColor(.secondary)
+                        }
                     }
-                }
-                
-                // Trial info - SUBORDINATE (smaller, secondary)
-                if hasTrial, !trialPeriodString.isEmpty {
-                    Text("Includes \(trialPeriodString) free trial")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
                 }
             }
             
-            // Plan name and badge
             HStack {
                 Text(displayName)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.primary)
-                
-                if product.id == "cariactureYearly" {
-                    Text("Best Value")
+                if product.id == "yearlyCaricature" {
+                    Text("Best value")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -487,14 +451,12 @@ struct ProductCard: View {
                 }
             }
             
-            // EXPLICIT AUTO-RENEWAL DISCLOSURE
             VStack(alignment: .leading, spacing: 4) {
-                Text("Then \(price)\(periodString), charged \(chargingFrequency). Auto-renews until canceled.")
+                Text(renewalDisclosure)
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                
-                if hasTrial {
+                if showTrialCopy {
                     Text("Payment starts automatically after trial unless canceled at least 24 hours before trial ends.")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
@@ -503,7 +465,6 @@ struct ProductCard: View {
             }
             .padding(.top, 4)
             
-            // CTA with billed amount
             Button(action: {
                 #if DEBUG
                 TraceLogger.trace("SimplePaywallView", "ProductCard: Subscribe button tapped for \(product.id)")
@@ -516,13 +477,8 @@ struct ProductCard: View {
                             .scaleEffect(0.8)
                             .tint(.white)
                     } else {
-                        if hasTrial {
-                            Text("Start trial, then \(price)\(periodString)")
-                                .font(.system(size: 16, weight: .semibold))
-                        } else {
-                            Text("Subscribe — \(price)\(periodString)")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
+                        Text(ctaTitle)
+                            .font(.system(size: 16, weight: .semibold))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -637,220 +593,3 @@ struct ProductCard: View {
     }
 }
 
-// Separate Free Trial card using yearly product's trial info
-// NOTE: This card is being replaced by ProductCard with trial info, but kept for backward compatibility
-// The FreeTrialCard now shows billed amount prominently per 3.1.2 requirements
-struct FreeTrialCard: View {
-    let product: Product
-    let subscription: Product.SubscriptionInfo
-    let isPurchasing: Bool
-    let onPurchase: () -> Void
-    
-    // Get billed amount (what user will be charged after trial)
-    private var billedPrice: String {
-        product.displayPrice
-    }
-    
-    // Get subscription period string (e.g., "/month", "/year")
-    private var periodString: String {
-        return formatPeriodString(subscription.subscriptionPeriod)
-    }
-    
-    // Get charging frequency string for disclosure (e.g., "monthly", "annually")
-    private var chargingFrequency: String {
-        return formatChargingFrequency(subscription.subscriptionPeriod)
-    }
-    
-    // Get trial period from subscription's introductory offer
-    private var trialPeriod: String {
-        guard let offer = subscription.introductoryOffer else { return "" }
-        return formatTrialPeriod(offer.period)
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // BILLED AMOUNT - MOST PROMINENT (top, largest font)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(billedPrice)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.primary)
-                    
-                    if !periodString.isEmpty {
-                        Text(periodString)
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // Trial info - SUBORDINATE (smaller, secondary)
-                if !trialPeriod.isEmpty {
-                    Text("Includes \(trialPeriod) free trial")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // Plan name and badge
-            HStack {
-                Text("Yearly")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
-                
-                Text("Best Value")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.blue)
-                    .cornerRadius(4)
-            }
-            
-            // EXPLICIT AUTO-RENEWAL DISCLOSURE
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Then \(billedPrice)\(periodString), charged \(chargingFrequency). Auto-renews until canceled.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                
-                if !trialPeriod.isEmpty {
-                    Text("Payment starts automatically after trial unless canceled at least 24 hours before trial ends.")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.top, 4)
-            
-            // CTA with billed amount
-            Button(action: {
-                #if DEBUG
-                TraceLogger.trace("SimplePaywallView", "FreeTrialCard: Start Free Trial button tapped for \(product.id)")
-                #endif
-                onPurchase()
-            }) {
-                HStack {
-                    if isPurchasing {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .tint(.white)
-                    } else {
-                        Text("Start trial, then \(billedPrice)\(periodString)")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.green)
-                .foregroundColor(.white)
-                .cornerRadius(12)
-            }
-            .disabled(isPurchasing)
-        }
-        .padding(20)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.green, lineWidth: 2)
-        )
-    }
-    
-    // Format subscription period as "/month" or "/year"
-    private func formatPeriodString(_ period: Product.SubscriptionPeriod) -> String {
-        switch period.unit {
-        case .day:
-            if period.value == 1 {
-                return "/day"
-            } else {
-                return "/\(period.value) days"
-            }
-        case .week:
-            if period.value == 1 {
-                return "/week"
-            } else {
-                return "/\(period.value) weeks"
-            }
-        case .month:
-            if period.value == 1 {
-                return "/month"
-            } else {
-                return "/\(period.value) months"
-            }
-        case .year:
-            if period.value == 1 {
-                return "/year"
-            } else {
-                return "/\(period.value) years"
-            }
-        @unknown default:
-            return "/\(period.value) \(period.unit)"
-        }
-    }
-    
-    // Format charging frequency for disclosure text (e.g., "monthly", "annually")
-    private func formatChargingFrequency(_ period: Product.SubscriptionPeriod) -> String {
-        switch period.unit {
-        case .day:
-            if period.value == 1 {
-                return "daily"
-            } else {
-                return "every \(period.value) days"
-            }
-        case .week:
-            if period.value == 1 {
-                return "weekly"
-            } else {
-                return "every \(period.value) weeks"
-            }
-        case .month:
-            if period.value == 1 {
-                return "monthly"
-            } else {
-                return "every \(period.value) months"
-            }
-        case .year:
-            if period.value == 1 {
-                return "annually"
-            } else {
-                return "every \(period.value) years"
-            }
-        @unknown default:
-            return "every \(period.value) \(period.unit)"
-        }
-    }
-    
-    // Format trial period duration
-    private func formatTrialPeriod(_ period: Product.SubscriptionPeriod) -> String {
-        switch period.unit {
-        case .day:
-            if period.value == 1 {
-                return "1 day"
-            } else if period.value == 7 {
-                return "1 week"
-            } else {
-                return "\(period.value) days"
-            }
-        case .week:
-            if period.value == 1 {
-                return "1 week"
-            } else {
-                return "\(period.value) weeks"
-            }
-        case .month:
-            if period.value == 1 {
-                return "1 month"
-            } else {
-                return "\(period.value) months"
-            }
-        case .year:
-            if period.value == 1 {
-                return "1 year"
-            } else {
-                return "\(period.value) years"
-            }
-        @unknown default:
-            return "\(period.value) \(period.unit)"
-        }
-    }
-}

@@ -14,8 +14,10 @@ import StoreKit
 import Foundation
 #endif
 
-/// Observes StoreKit subscription state and publishes changes reactively
-/// This is the single source of truth for premium access status
+/// Observes StoreKit subscription state and publishes changes reactively.
+/// This is the single source of truth for premium access status.
+/// hasPremiumAccess is true when the user has an active entitlement (trial or paid)
+/// for either monthly or yearly subscription.
 @MainActor
 class EntitlementManager: ObservableObject {
     @Published var hasPremiumAccess: Bool = false
@@ -33,7 +35,7 @@ class EntitlementManager: ObservableObject {
     private var observationTask: Task<Void, Never>?
     private var transactionUpdateTask: Task<Void, Never>?
     
-    private let subscriptionProductIDs = ["cariactureMonthly", "cariactureYearly"]
+    private let subscriptionProductIDs = ["monthlyCaricature", "yearlyCaricature"]
     
     #if DEBUG
     // Track last logged state to prevent duplicate logs
